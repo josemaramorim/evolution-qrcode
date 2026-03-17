@@ -86,7 +86,7 @@
     },
     {
       "parameters": {
-        "method": "POST",
+        "method": "GET",
         "url": "={{'https://painelevo.jrvtech.com.br' + '/instance/connect/' + $json.instanceName}}",
         "sendHeaders": true,
         "headerParameters": {
@@ -94,16 +94,9 @@
             {
               "name": "apikey",
               "value": "Mudar@!123"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
             }
           ]
         },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={}",
         "options": {}
       },
       "id": "e7d239d1-dc9b-4dfd-822a-dc55575c5ca5",
@@ -193,7 +186,7 @@
     {
       "parameters": {
         "method": "GET",
-        "url": "={{'https://painelevo.jrvtech.com.br' + '/instance/connectionState/' + $json.sessionId}}",
+        "url": "={{'https://painelevo.jrvtech.com.br' + '/instance/connect/' + $json.sessionId}}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -212,11 +205,12 @@
       "position": [
         512,
         448
-      ]
+      ],
+      "continueOnFail": true
     },
     {
       "parameters": {
-        "jsCode": "const state = ($json.instance?.state || $json.state || $json.status || 'waiting').toLowerCase();\n\nreturn [{\n  json: {\n    status: state,\n    connected: state === 'open' || state === 'connected',\n    qrCode: $json.base64 || $json.qrcode || $json.qrCode || null\n  }\n}];"
+        "jsCode": "const base64 = $json.base64 || null;\nconst state = ($json.instance?.state || $json.state || '').toLowerCase();\nconst httpStatus = $json.status;\nconst message = ($json.message || '').toLowerCase();\n\n// Connected: state is open/connected OR Evolution API returned 403 (already connected)\nconst isConnected = state === 'open' || state === 'connected'\n  || (httpStatus === 403 && message.includes('connect'));\n\nreturn [{\n  json: {\n    status: isConnected ? 'connected' : (base64 ? 'qrcode' : state || 'waiting'),\n    connected: isConnected,\n    qrCode: isConnected ? null : base64\n  }\n}];"
       },
       "id": "d4c8c7d4-1159-46ce-b42b-a580a2666c9a",
       "name": "Code Normalize Status",
