@@ -242,18 +242,23 @@
   </main>
 
   <script>
-    // CONFIGURACAO: substitua abaixo pela URL do seu n8n
+    // CONFIGURACAO: substitua abaixo pela URL do seu n8n (SEM BARRA FINAL)
     // Exemplo: https://seu-n8n.com ou https://seu-n8n.com:5678
-    const N8N_BASE_URL = "https://portalautomacao.jrvtech.com.br/";
+    const N8N_BASE_URL = "https://portalautomacao.jrvtech.com.br";
 
     // Se passar ?apiBase=URL como parametro na URL da pagina, sera usado automaticamente
     const urlParams = new URLSearchParams(window.location.search);
     const apiBaseFromParam = urlParams.get("apiBase");
-    const baseUrl = apiBaseFromParam || N8N_BASE_URL;
+    
+    // Limpar URL: remover barra final se existir
+    const cleanBase = (url) => url.replace(/\/$/, '');
+    const baseUrl = apiBaseFromParam ? cleanBase(apiBaseFromParam) : N8N_BASE_URL;
 
     const START_ENDPOINT = baseUrl + "/webhook/evolution/connect/start";
     const STATUS_ENDPOINT = baseUrl + "/webhook/evolution/connect/status";
     const DISCONNECT_ENDPOINT = baseUrl + "/webhook/evolution/connect/disconnect";
+
+    console.log("URLs configuradas:", { baseUrl, START_ENDPOINT, STATUS_ENDPOINT, DISCONNECT_ENDPOINT });
 
     const startBtn = document.getElementById("startBtn");
     const stopBtn = document.getElementById("stopBtn");
@@ -274,7 +279,7 @@
 
     function renderQr(qrBase64) {
       if (!qrBase64) {
-        qrWrap.innerHTML = '<p class="muted">Ainda sem QR Code disponivel.</p>';
+        qrWrap.innerHTML = '<p class="muted">Ainda sem QR Code disponível.</p>';
         return;
       }
 
@@ -293,6 +298,19 @@
       setStatus("Consulta pausada.", "warn");
     }
 
+    async function safeParseJson(response) {
+      try {
+        const text = await response.clone().text();
+        if (!text) {
+          throw new Error("Resposta vazia do servidor");
+        }
+        return JSON.parse(text);
+      } catch (err) {
+        console.error("Erro ao fazer parse JSON:", err);
+        throw new Error(`Erro ao processar resposta: ${err.message}`);
+      }
+    }
+
     async function disconnectInstance() {
       const instanceName = instanceInput.value.trim();
       const sessionId = currentSessionId || instanceName;
@@ -302,7 +320,7 @@
         return;
       }
 
-      setStatus("Solicitando desconexao...", "warn");
+      setStatus("Solicitando desconexão...", "warn");
 
       try {
         const response = await fetch(DISCONNECT_ENDPOINT, {
@@ -312,14 +330,16 @@
         });
 
         if (!response.ok) {
-          throw new Error(`Falha ao desconectar (${response.status}).`);
+          throw new Error(`Falha ao desconectar (HTTP ${response.status}).`);
         }
+
+        const data = await safeParseJson(response);
 
         stopPolling();
         currentSessionId = null;
         renderQr(null);
         sessionMeta.textContent = "";
-        setStatus("Instancia desconectada com sucesso.", "ok");
+        setStatus("Instância desconectada com sucesso.", "ok");
       } catch (err) {
         setStatus(err.message || "Erro inesperado ao desconectar.", "warn");
       }
@@ -329,27 +349,33 @@
       if (!currentSessionId) return;
 
       const url = `${STATUS_ENDPOINT}?sessionId=${encodeURIComponent(currentSessionId)}`;
-      const response = await fetch(url, { method: "GET" });
+      
+      try {
+        const response = await fetch(url, { method: "GET" });
 
-      if (!response.ok) {
-        throw new Error(`Falha ao consultar status (${response.status}).`);
-      }
+        if (!response.ok) {
+          throw new Error(`Falha ao consultar status (HTTP ${response.status}).`);
+        }
 
-      const data = await response.json();
-      const state = (data.status || "").toLowerCase();
+        const data = await safeParseJson(response);
+        const state = (data.status || "").toLowerCase();
 
-      if (data.qrCode) {
-        renderQr(data.qrCode);
-        setStatus("QR Code atualizado. Escaneie com o WhatsApp.", "ok");
-      }
+        if (data.qrCode) {
+          renderQr(data.qrCode);
+          setStatus("QR Code atualizado. Escaneie com o WhatsApp.", "ok");
+        }
 
-      if (state === "connected" || data.connected === true) {
-        setStatus("Conexao concluida com sucesso.", "ok");
-        stopPolling();
-      }
+        if (state === "connected" || data.connected === true) {
+          setStatus("Conexão concluída com sucesso.", "ok");
+          stopPolling();
+        }
 
-      if (state === "waiting" || state === "qrcode") {
-        setStatus("Aguardando leitura do QR Code.", "warn");
+        if (state === "waiting" || state === "qrcode") {
+          setStatus("Aguardando leitura do QR Code...", "warn");
+        }
+      } catch (err) {
+        setStatus(err.message, "warn");
+        throw err;
       }
     }
 
@@ -360,10 +386,12 @@
         return;
       }
 
-      setStatus("Iniciando conexao...", "warn");
+      setStatus("Iniciando conexão...", "warn");
       renderQr(null);
 
       try {
+        console.log("POST para:", START_ENDPOINT, "com instanceName:", instanceName);
+        
         const response = await fetch(START_ENDPOINT, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -371,18 +399,20 @@
         });
 
         if (!response.ok) {
-          throw new Error(`Falha ao iniciar conexao (${response.status}).`);
+          throw new Error(`Falha ao iniciar conexão (HTTP ${response.status}).`);
         }
 
-        const data = await response.json();
+        const data = await safeParseJson(response);
+        console.log("Resposta recebida:", data);
+        
         currentSessionId = data.sessionId || instanceName;
-        sessionMeta.textContent = `Sessao: ${currentSessionId}`;
+        sessionMeta.textContent = `Sessão: ${currentSessionId}`;
 
         if (data.qrCode) {
           renderQr(data.qrCode);
           setStatus("QR Code gerado. Escaneie com o WhatsApp.", "ok");
         } else {
-          setStatus("Conexao iniciada. Buscando QR Code...", "warn");
+          setStatus("Conexão iniciada. Buscando QR Code...", "warn");
         }
 
         if (pollingTimer) clearInterval(pollingTimer);
@@ -394,7 +424,7 @@
 
         await fetchStatus();
       } catch (err) {
-        setStatus(err.message || "Erro inesperado ao iniciar conexao.", "warn");
+        setStatus(err.message || "Erro inesperado ao iniciar conexão.", "warn");
       }
     }
 
