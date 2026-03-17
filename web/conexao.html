@@ -1,0 +1,406 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Conectar WhatsApp</title>
+  <style>
+    :root {
+      --bg-1: #fff7ed;
+      --bg-2: #ffedd5;
+      --ink: #111827;
+      --muted: #6b7280;
+      --accent: #ea580c;
+      --accent-2: #9a3412;
+      --ok: #15803d;
+      --warn: #b45309;
+      --card: rgba(255, 255, 255, 0.9);
+      --stroke: rgba(17, 24, 39, 0.08);
+      --shadow: 0 20px 60px rgba(154, 52, 18, 0.18);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Space Grotesk", "Segoe UI", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 500px at -20% -10%, rgba(234, 88, 12, 0.24), transparent 60%),
+        radial-gradient(900px 500px at 120% 110%, rgba(180, 83, 9, 0.18), transparent 50%),
+        linear-gradient(135deg, var(--bg-1), var(--bg-2));
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+
+    .panel {
+      width: min(760px, 100%);
+      background: var(--card);
+      border: 1px solid var(--stroke);
+      border-radius: 20px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(8px);
+      overflow: hidden;
+      animation: rise 420ms ease-out;
+    }
+
+    @keyframes rise {
+      from {
+        opacity: 0;
+        transform: translateY(12px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .header {
+      padding: 24px;
+      background: linear-gradient(120deg, #7c2d12, #ea580c);
+      color: #fff;
+    }
+
+    .header h1 {
+      margin: 0;
+      font-size: clamp(1.2rem, 2.5vw, 1.7rem);
+      letter-spacing: 0.3px;
+    }
+
+    .header p {
+      margin: 10px 0 0;
+      opacity: 0.92;
+      line-height: 1.5;
+      font-size: 0.98rem;
+    }
+
+    .content {
+      display: grid;
+      gap: 20px;
+      padding: 24px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 20px;
+    }
+
+    @media (max-width: 760px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .card {
+      border: 1px solid var(--stroke);
+      border-radius: 16px;
+      padding: 18px;
+      background: #fff;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 0.92rem;
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    input {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1px solid #d1d5db;
+      border-radius: 12px;
+      font-size: 1rem;
+      font-family: inherit;
+      transition: border-color 150ms ease;
+    }
+
+    input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 12px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      border: 0;
+      border-radius: 12px;
+      padding: 11px 16px;
+      font-weight: 700;
+      font-family: inherit;
+      cursor: pointer;
+      transition: transform 120ms ease, opacity 120ms ease;
+    }
+
+    button:hover { transform: translateY(-1px); }
+    button:active { transform: translateY(0); }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .btn-secondary {
+      background: #f3f4f6;
+      color: #111827;
+    }
+
+    .status {
+      min-height: 42px;
+      border-radius: 10px;
+      padding: 11px 12px;
+      font-size: 0.95rem;
+      line-height: 1.4;
+      background: #f9fafb;
+      border: 1px dashed #d1d5db;
+    }
+
+    .status.ok {
+      background: #ecfdf5;
+      border-color: #86efac;
+      color: var(--ok);
+    }
+
+    .status.warn {
+      background: #fffbeb;
+      border-color: #fcd34d;
+      color: var(--warn);
+    }
+
+    .qr-wrap {
+      display: grid;
+      place-items: center;
+      min-height: 280px;
+      border-radius: 16px;
+      border: 1px dashed #d1d5db;
+      background: #fafafa;
+      padding: 16px;
+    }
+
+    .qr-wrap img {
+      width: min(280px, 100%);
+      border-radius: 10px;
+      background: #fff;
+      padding: 10px;
+      border: 1px solid #e5e7eb;
+    }
+
+    .muted {
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin: 0;
+      text-align: center;
+    }
+
+    .small {
+      color: var(--muted);
+      font-size: 0.84rem;
+      margin-top: 10px;
+      word-break: break-word;
+    }
+  </style>
+</head>
+<body>
+  <main class="panel">
+    <header class="header">
+      <h1>Conectar WhatsApp</h1>
+      <p>Digite o nome da sua instância e escaneie o QR Code para finalizar a conexão.</p>
+    </header>
+
+    <section class="content">
+      <div class="grid">
+        <article class="card">
+          <label for="instanceName">Nome da instância</label>
+          <input id="instanceName" type="text" placeholder="ex.: cliente-acme" />
+
+          <div class="actions">
+            <button id="startBtn" class="btn-primary" type="button">Gerar QR Code</button>
+            <button id="disconnectBtn" class="btn-secondary" type="button">Desconectar</button>
+            <button id="stopBtn" class="btn-secondary" type="button">Parar consulta</button>
+          </div>
+
+          <div id="status" class="status" style="margin-top: 12px;">Aguardando início da conexão.</div>
+          <p id="sessionMeta" class="small"></p>
+        </article>
+
+        <article class="card">
+          <div id="qrWrap" class="qr-wrap">
+            <p class="muted">O QR Code aparecerá aqui.</p>
+          </div>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    // CONFIGURACAO: substitua abaixo pela URL do seu n8n
+    // Exemplo: https://seu-n8n.com ou https://seu-n8n.com:5678
+    const N8N_BASE_URL = "https://portalautomacao.jrvtech.com.br/";
+
+    // Se passar ?apiBase=URL como parametro na URL da pagina, sera usado automaticamente
+    const urlParams = new URLSearchParams(window.location.search);
+    const apiBaseFromParam = urlParams.get("apiBase");
+    const baseUrl = apiBaseFromParam || N8N_BASE_URL;
+
+    const START_ENDPOINT = baseUrl + "/webhook/evolution/connect/start";
+    const STATUS_ENDPOINT = baseUrl + "/webhook/evolution/connect/status";
+    const DISCONNECT_ENDPOINT = baseUrl + "/webhook/evolution/connect/disconnect";
+
+    const startBtn = document.getElementById("startBtn");
+    const stopBtn = document.getElementById("stopBtn");
+    const disconnectBtn = document.getElementById("disconnectBtn");
+    const instanceInput = document.getElementById("instanceName");
+    const qrWrap = document.getElementById("qrWrap");
+    const statusEl = document.getElementById("status");
+    const sessionMeta = document.getElementById("sessionMeta");
+
+    let pollingTimer = null;
+    let currentSessionId = null;
+
+    function setStatus(text, kind) {
+      statusEl.textContent = text;
+      statusEl.classList.remove("ok", "warn");
+      if (kind) statusEl.classList.add(kind);
+    }
+
+    function renderQr(qrBase64) {
+      if (!qrBase64) {
+        qrWrap.innerHTML = '<p class="muted">Ainda sem QR Code disponivel.</p>';
+        return;
+      }
+
+      const src = qrBase64.startsWith("data:image")
+        ? qrBase64
+        : `data:image/png;base64,${qrBase64}`;
+
+      qrWrap.innerHTML = `<img src="${src}" alt="QR Code do WhatsApp" />`;
+    }
+
+    function stopPolling() {
+      if (pollingTimer) {
+        clearInterval(pollingTimer);
+        pollingTimer = null;
+      }
+      setStatus("Consulta pausada.", "warn");
+    }
+
+    async function disconnectInstance() {
+      const instanceName = instanceInput.value.trim();
+      const sessionId = currentSessionId || instanceName;
+
+      if (!sessionId) {
+        setStatus("Informe o nome da instância para desconectar.", "warn");
+        return;
+      }
+
+      setStatus("Solicitando desconexao...", "warn");
+
+      try {
+        const response = await fetch(DISCONNECT_ENDPOINT, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sessionId, instanceName })
+        });
+
+        if (!response.ok) {
+          throw new Error(`Falha ao desconectar (${response.status}).`);
+        }
+
+        stopPolling();
+        currentSessionId = null;
+        renderQr(null);
+        sessionMeta.textContent = "";
+        setStatus("Instancia desconectada com sucesso.", "ok");
+      } catch (err) {
+        setStatus(err.message || "Erro inesperado ao desconectar.", "warn");
+      }
+    }
+
+    async function fetchStatus() {
+      if (!currentSessionId) return;
+
+      const url = `${STATUS_ENDPOINT}?sessionId=${encodeURIComponent(currentSessionId)}`;
+      const response = await fetch(url, { method: "GET" });
+
+      if (!response.ok) {
+        throw new Error(`Falha ao consultar status (${response.status}).`);
+      }
+
+      const data = await response.json();
+      const state = (data.status || "").toLowerCase();
+
+      if (data.qrCode) {
+        renderQr(data.qrCode);
+        setStatus("QR Code atualizado. Escaneie com o WhatsApp.", "ok");
+      }
+
+      if (state === "connected" || data.connected === true) {
+        setStatus("Conexao concluida com sucesso.", "ok");
+        stopPolling();
+      }
+
+      if (state === "waiting" || state === "qrcode") {
+        setStatus("Aguardando leitura do QR Code.", "warn");
+      }
+    }
+
+    async function startConnection() {
+      const instanceName = instanceInput.value.trim();
+      if (!instanceName) {
+        setStatus("Informe o nome da instância.", "warn");
+        return;
+      }
+
+      setStatus("Iniciando conexao...", "warn");
+      renderQr(null);
+
+      try {
+        const response = await fetch(START_ENDPOINT, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ instanceName })
+        });
+
+        if (!response.ok) {
+          throw new Error(`Falha ao iniciar conexao (${response.status}).`);
+        }
+
+        const data = await response.json();
+        currentSessionId = data.sessionId || instanceName;
+        sessionMeta.textContent = `Sessao: ${currentSessionId}`;
+
+        if (data.qrCode) {
+          renderQr(data.qrCode);
+          setStatus("QR Code gerado. Escaneie com o WhatsApp.", "ok");
+        } else {
+          setStatus("Conexao iniciada. Buscando QR Code...", "warn");
+        }
+
+        if (pollingTimer) clearInterval(pollingTimer);
+        pollingTimer = setInterval(() => {
+          fetchStatus().catch((err) => {
+            setStatus(err.message, "warn");
+          });
+        }, 4000);
+
+        await fetchStatus();
+      } catch (err) {
+        setStatus(err.message || "Erro inesperado ao iniciar conexao.", "warn");
+      }
+    }
+
+    startBtn.addEventListener("click", startConnection);
+    disconnectBtn.addEventListener("click", disconnectInstance);
+    stopBtn.addEventListener("click", stopPolling);
+  </script>
+</body>
+</html>
