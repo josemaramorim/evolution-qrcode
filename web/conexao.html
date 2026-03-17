@@ -317,9 +317,9 @@
 
     async function disconnectInstance() {
       const instanceName = instanceInput.value.trim();
-      const sessionId = currentSessionId || instanceName;
+      const identifier = instanceName || currentSessionId;
 
-      if (!sessionId) {
+      if (!identifier) {
         setStatus("Informe o nome da instância para desconectar.", "warn");
         return;
       }
@@ -330,12 +330,12 @@
         const response = await fetch(DISCONNECT_ENDPOINT, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ sessionId, instanceName })
+          body: JSON.stringify({ sessionId: identifier, instanceName: identifier })
         });
 
         const data = await safeParseJson(response);
 
-        if (!response.ok && data.disconnected !== true) {
+        if (data.disconnected !== true) {
           throw new Error(data.message || `Falha ao desconectar (HTTP ${response.status}).`);
         }
 

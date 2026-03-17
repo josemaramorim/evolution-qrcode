@@ -311,7 +311,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const httpStatus = $json.status;\nconst message = ($json.message || '').toLowerCase();\n\nconst disconnected = !httpStatus || (httpStatus >= 200 && httpStatus < 300) || message.includes('not found') || message.includes('already');\n\nreturn [{\n  json: {\n    disconnected,\n    sessionId: $json.sessionId || $json.instanceName || null,\n    status: disconnected ? 'disconnected' : 'error',\n    message: disconnected ? 'Instancia desconectada.' : ($json.message || 'Falha ao desconectar')\n  }\n}];"
+        "jsCode": "const statusCode = $json.statusCode ?? $json.status ?? null;\nconst payload = $json.body && typeof $json.body === 'object' ? $json.body : $json;\n\nconst statusText = String(payload.status || '').toLowerCase();\nconst explicitSuccess = payload.disconnected === true\n  || payload.success === true\n  || statusText === 'disconnected'\n  || statusText === 'close'\n  || statusText === 'closed';\n\nconst byHttpCode = Number.isInteger(statusCode) && statusCode >= 200 && statusCode < 300;\nconst disconnected = explicitSuccess || byHttpCode;\nconst message = payload.message || (disconnected ? 'Instancia desconectada.' : `Falha ao desconectar na Evolution API (HTTP ${statusCode || 'desconhecido'}).`);\n\nreturn [{\n  json: {\n    disconnected,\n    sessionId: payload.sessionId || payload.instanceName || $json.sessionId || $json.instanceName || null,\n    status: disconnected ? 'disconnected' : 'error',\n    statusCode: statusCode || null,\n    message\n  }\n}];"
       },
       "id": "12994d5d-b82c-4c38-8cba-67a589b8a5ad",
       "name": "Code Normalize Disconnect",
