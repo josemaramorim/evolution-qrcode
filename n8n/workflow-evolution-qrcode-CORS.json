@@ -1,0 +1,521 @@
+{
+  "name": "Evolution QR Connect (Page + Start + Status + Disconnect)",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "evolution/connect",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "397acbb0-4bfb-45c4-a30a-65f51767d58a",
+      "name": "Webhook Page",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "52751f36-a2e5-49b0-a55c-ebdf8a6900f6"
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "<!doctype html>\n<html lang=\"pt-BR\">\n<head>\n  <meta charset=\"utf-8\" />\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />\n  <title>Conectar WhatsApp</title>\n  <style>\n    :root {\n      --bg-1: #fff7ed;\n      --bg-2: #ffedd5;\n      --ink: #111827;\n      --muted: #6b7280;\n      --accent: #ea580c;\n      --ok: #15803d;\n      --warn: #b45309;\n      --card: rgba(255, 255, 255, 0.92);\n      --stroke: rgba(17, 24, 39, 0.08);\n      --shadow: 0 20px 60px rgba(154, 52, 18, 0.18);\n    }\n    * { box-sizing: border-box; }\n    body {\n      margin: 0;\n      min-height: 100vh;\n      font-family: Segoe UI, sans-serif;\n      color: var(--ink);\n      background:\n        radial-gradient(1200px 500px at -20% -10%, rgba(234, 88, 12, 0.24), transparent 60%),\n        radial-gradient(900px 500px at 120% 110%, rgba(180, 83, 9, 0.18), transparent 50%),\n        linear-gradient(135deg, var(--bg-1), var(--bg-2));\n      display: grid;\n      place-items: center;\n      padding: 24px;\n    }\n    .panel {\n      width: min(760px, 100%);\n      background: var(--card);\n      border: 1px solid var(--stroke);\n      border-radius: 20px;\n      box-shadow: var(--shadow);\n      overflow: hidden;\n    }\n    .header {\n      padding: 24px;\n      background: linear-gradient(120deg, #7c2d12, #ea580c);\n      color: #fff;\n    }\n    .header h1 { margin: 0; font-size: clamp(1.2rem, 2.5vw, 1.7rem); }\n    .header p { margin: 10px 0 0; opacity: 0.92; line-height: 1.5; font-size: 0.98rem; }\n    .content { display: grid; gap: 20px; padding: 24px; }\n    .grid { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 20px; }\n    @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }\n    .card { border: 1px solid var(--stroke); border-radius: 16px; padding: 18px; background: #fff; }\n    label { display: block; margin-bottom: 8px; font-size: .92rem; color: var(--muted); font-weight: 700; }\n    input { width: 100%; padding: 12px 14px; border: 1px solid #d1d5db; border-radius: 12px; font-size: 1rem; }\n    .actions { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }\n    button { border: 0; border-radius: 12px; padding: 11px 16px; font-weight: 700; cursor: pointer; }\n    .btn-primary { background: var(--accent); color: #fff; }\n    .btn-secondary { background: #f3f4f6; color: #111827; }\n    .status { min-height: 42px; border-radius: 10px; padding: 11px 12px; font-size: .95rem; line-height: 1.4; background: #f9fafb; border: 1px dashed #d1d5db; }\n    .status.ok { background: #ecfdf5; border-color: #86efac; color: var(--ok); }\n    .status.warn { background: #fffbeb; border-color: #fcd34d; color: var(--warn); }\n    .qr-wrap { display: grid; place-items: center; min-height: 280px; border-radius: 16px; border: 1px dashed #d1d5db; background: #fafafa; padding: 16px; }\n    .qr-wrap img { width: min(280px, 100%); border-radius: 10px; background: #fff; padding: 10px; border: 1px solid #e5e7eb; }\n    .muted { color: var(--muted); font-size: .9rem; margin: 0; text-align: center; }\n    .small { color: var(--muted); font-size: .84rem; margin-top: 10px; word-break: break-word; }\n  </style>\n</head>\n<body>\n  <main class=\"panel\">\n    <header class=\"header\">\n      <h1>Conectar WhatsApp</h1>\n      <p>Digite o nome da sua instancia e escaneie o QR Code para finalizar a conexao.</p>\n    </header>\n    <section class=\"content\">\n      <div class=\"grid\">\n        <article class=\"card\">\n          <label for=\"instanceName\">Nome da instancia</label>\n          <input id=\"instanceName\" type=\"text\" placeholder=\"ex.: cliente-acme\" />\n          <div class=\"actions\">\n            <button id=\"startBtn\" class=\"btn-primary\" type=\"button\">Gerar QR Code</button>\n            <button id=\"disconnectBtn\" class=\"btn-secondary\" type=\"button\">Desconectar</button>\n            <button id=\"stopBtn\" class=\"btn-secondary\" type=\"button\">Parar consulta</button>\n          </div>\n          <div id=\"status\" class=\"status\" style=\"margin-top:12px;\">Aguardando inicio da conexao.</div>\n          <p id=\"sessionMeta\" class=\"small\"></p>\n        </article>\n        <article class=\"card\">\n          <div id=\"qrWrap\" class=\"qr-wrap\">\n            <p class=\"muted\">O QR Code aparecera aqui.</p>\n          </div>\n        </article>\n      </div>\n    </section>\n  </main>\n  <script>\n    const START_ENDPOINT = \"/webhook/evolution/connect/start\";\n    const STATUS_ENDPOINT = \"/webhook/evolution/connect/status\";\n    const DISCONNECT_ENDPOINT = \"/webhook/evolution/connect/disconnect\";\n\n    const startBtn = document.getElementById(\"startBtn\");\n    const stopBtn = document.getElementById(\"stopBtn\");\n    const disconnectBtn = document.getElementById(\"disconnectBtn\");\n    const instanceInput = document.getElementById(\"instanceName\");\n    const qrWrap = document.getElementById(\"qrWrap\");\n    const statusEl = document.getElementById(\"status\");\n    const sessionMeta = document.getElementById(\"sessionMeta\");\n\n    let pollingTimer = null;\n    let currentSessionId = null;\n\n    function setStatus(text, kind) {\n      statusEl.textContent = text;\n      statusEl.classList.remove(\"ok\", \"warn\");\n      if (kind) statusEl.classList.add(kind);\n    }\n\n    function renderQr(qrBase64) {\n      if (!qrBase64) {\n        qrWrap.innerHTML = '<p class=\"muted\">Ainda sem QR Code disponivel.</p>';\n        return;\n      }\n      const src = qrBase64.startsWith(\"data:image\") ? qrBase64 : `data:image/png;base64,${qrBase64}`;\n      qrWrap.innerHTML = `<img src=\"${src}\" alt=\"QR Code\" />`;\n    }\n\n    function stopPolling() {\n      if (pollingTimer) {\n        clearInterval(pollingTimer);\n        pollingTimer = null;\n      }\n      setStatus(\"Consulta pausada.\", \"warn\");\n    }\n\n    async function fetchStatus() {\n      if (!currentSessionId) return;\n      const response = await fetch(`${STATUS_ENDPOINT}?sessionId=${encodeURIComponent(currentSessionId)}`);\n      if (!response.ok) throw new Error(`Falha ao consultar status (${response.status}).`);\n      const data = await response.json();\n      const state = (data.status || \"\").toLowerCase();\n\n      if (data.qrCode) {\n        renderQr(data.qrCode);\n        setStatus(\"QR Code atualizado. Escaneie com o WhatsApp.\", \"ok\");\n      }\n\n      if (state === \"connected\" || data.connected === true) {\n        setStatus(\"Conexao concluida com sucesso.\", \"ok\");\n        stopPolling();\n      }\n\n      if (state === \"waiting\" || state === \"qrcode\") {\n        setStatus(\"Aguardando leitura do QR Code.\", \"warn\");\n      }\n    }\n\n    async function startConnection() {\n      const instanceName = instanceInput.value.trim();\n      if (!instanceName) {\n        setStatus(\"Informe o nome da instancia.\", \"warn\");\n        return;\n      }\n\n      setStatus(\"Iniciando conexao...\", \"warn\");\n      renderQr(null);\n\n      try {\n        const response = await fetch(START_ENDPOINT, {\n          method: \"POST\",\n          headers: { \"Content-Type\": \"application/json\" },\n          body: JSON.stringify({ instanceName })\n        });\n\n        if (!response.ok) throw new Error(`Falha ao iniciar conexao (${response.status}).`);\n\n        const data = await response.json();\n        currentSessionId = data.sessionId || instanceName;\n        sessionMeta.textContent = `Sessao: ${currentSessionId}`;\n\n        if (data.qrCode) {\n          renderQr(data.qrCode);\n          setStatus(\"QR Code gerado. Escaneie com o WhatsApp.\", \"ok\");\n        } else {\n          setStatus(\"Conexao iniciada. Buscando QR Code...\", \"warn\");\n        }\n\n        if (pollingTimer) clearInterval(pollingTimer);\n        pollingTimer = setInterval(() => fetchStatus().catch(e => setStatus(e.message, \"warn\")), 4000);\n        await fetchStatus();\n      } catch (err) {\n        setStatus(err.message || \"Erro inesperado ao iniciar conexao.\", \"warn\");\n      }\n    }\n\n    async function disconnectInstance() {\n      const instanceName = instanceInput.value.trim();\n      const sessionId = currentSessionId || instanceName;\n      if (!sessionId) {\n        setStatus(\"Informe o nome da instancia para desconectar.\", \"warn\");\n        return;\n      }\n\n      setStatus(\"Solicitando desconexao...\", \"warn\");\n\n      try {\n        const response = await fetch(DISCONNECT_ENDPOINT, {\n          method: \"POST\",\n          headers: { \"Content-Type\": \"application/json\" },\n          body: JSON.stringify({ sessionId, instanceName })\n        });\n\n        if (!response.ok) throw new Error(`Falha ao desconectar (${response.status}).`);\n\n        stopPolling();\n        currentSessionId = null;\n        renderQr(null);\n        sessionMeta.textContent = \"\";\n        setStatus(\"Instancia desconectada com sucesso.\", \"ok\");\n      } catch (err) {\n        setStatus(err.message || \"Erro inesperado ao desconectar.\", \"warn\");\n      }\n    }\n\n    startBtn.addEventListener(\"click\", startConnection);\n    disconnectBtn.addEventListener(\"click\", disconnectInstance);\n    stopBtn.addEventListener(\"click\", stopPolling);\n  </script>\n</body>\n</html>",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/html; charset=utf-8"
+              },
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "GET, POST, OPTIONS"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type"
+              }
+            ]
+          }
+        }
+      },
+      "id": "f6cc430e-b617-4518-8798-386dfa31d670",
+      "name": "Respond Page HTML",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        256,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "evolution/connect/start",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "0ba0107f-47e0-4705-93a5-e1c596cda294",
+      "name": "Webhook Start",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        224
+      ],
+      "webhookId": "f8f84d56-ebd0-4d71-bf06-9670c306ae1d"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $json;\nconst instanceName = (body.instanceName || '').trim();\n\nif (!instanceName) {\n  throw new Error('instanceName e obrigatorio');\n}\n\nreturn [{ json: { instanceName } }];"
+      },
+      "id": "07ffe1e9-c500-49e4-8eb0-765349b8a735",
+      "name": "Code Validate Start",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        256,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{'https://painelevo.jrvtech.com.br' + '/instance/connect/' + $json.instanceName}}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "Mudar@!123"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={}",
+        "options": {}
+      },
+      "id": "e7d239d1-dc9b-4dfd-822a-dc55575c5ca5",
+      "name": "HTTP Start Evolution",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        512,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $json;\n\nconst normalized = {\n  sessionId: input.sessionId || input.instance?.instanceName || input.instanceName || null,\n  status: input.status || 'waiting',\n  qrCode: input.base64 || input.qrCode || input.qrcode || null,\n  connected: (input.status || '').toLowerCase() === 'connected'\n};\n\nreturn [{ json: normalized }];"
+      },
+      "id": "c4392fbc-3fe8-451e-be23-648618078212",
+      "name": "Code Normalize Start",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        752,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{$json}}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "GET, POST, OPTIONS"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type"
+              }
+            ]
+          }
+        }
+      },
+      "id": "87f757e3-58ce-4b38-8349-e5be346d8ab8",
+      "name": "Respond Start",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1008,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "path": "evolution/connect/status",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "c02ff815-f047-4aa3-980b-3762a8d21109",
+      "name": "Webhook Status",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        448
+      ],
+      "webhookId": "81bb96b6-b1d4-47a1-b680-f02ebf8f4440"
+    },
+    {
+      "parameters": {
+        "jsCode": "const sessionId = ($json.query?.sessionId || '').trim();\nif (!sessionId) {\n  throw new Error('sessionId e obrigatorio');\n}\nreturn [{ json: { sessionId } }];"
+      },
+      "id": "6bd8b9b9-7c58-4730-8255-e49427570caa",
+      "name": "Code Validate Status",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        256,
+        448
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{'https://painelevo.jrvtech.com.br' + '/instance/connectionState/' + $json.sessionId}}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "Mudar@!123"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "363ab8ef-3e15-4a91-9608-c985ccbb2609",
+      "name": "HTTP Status Evolution",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        512,
+        448
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const state = ($json.instance?.state || $json.state || $json.status || 'waiting').toLowerCase();\n\nreturn [{\n  json: {\n    status: state,\n    connected: state === 'open' || state === 'connected',\n    qrCode: $json.base64 || $json.qrcode || $json.qrCode || null\n  }\n}];"
+      },
+      "id": "d4c8c7d4-1159-46ce-b42b-a580a2666c9a",
+      "name": "Code Normalize Status",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        752,
+        448
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{$json}}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "GET, POST, OPTIONS"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type"
+              }
+            ]
+          }
+        }
+      },
+      "id": "0adfeb66-75ab-4131-b999-c407a4b623cb",
+      "name": "Respond Status",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1008,
+        448
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "evolution/connect/disconnect",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "ad6245ae-c1c7-491f-b5a7-a22d2c5fcf81",
+      "name": "Webhook Disconnect",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        672
+      ],
+      "webhookId": "059fe4fb-eea0-4be6-b4d0-8fc682406ba7"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $json;\nconst sessionId = (body.sessionId || body.instanceName || '').trim();\n\nif (!sessionId) {\n  throw new Error('sessionId ou instanceName e obrigatorio');\n}\n\nreturn [{ json: { sessionId } }];"
+      },
+      "id": "4269fa2c-d1f1-4cd0-97c5-92699a1bc0cf",
+      "name": "Code Validate Disconnect",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        256,
+        672
+      ]
+    },
+    {
+      "parameters": {
+        "method": "DELETE",
+        "url": "={{'https://painelevo.jrvtech.com.br' + '/instance/logout/' + $json.sessionId}}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "Mudar@!123"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a06223dd-600c-4ced-83f0-d02cedea064a",
+      "name": "HTTP Disconnect Evolution",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        512,
+        672
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{\n  json: {\n    disconnected: true,\n    sessionId: $json.sessionId || null,\n    status: 'disconnected'\n  }\n}];"
+      },
+      "id": "12994d5d-b82c-4c38-8cba-67a589b8a5ad",
+      "name": "Code Normalize Disconnect",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        752,
+        672
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{$json}}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "GET, POST, OPTIONS"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type"
+              }
+            ]
+          }
+        }
+      },
+      "id": "aa952cee-57a7-490b-99c8-0689cc2ce272",
+      "name": "Respond Disconnect",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1008,
+        672
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook Page": {
+      "main": [
+        [
+          {
+            "node": "Respond Page HTML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook Start": {
+      "main": [
+        [
+          {
+            "node": "Code Validate Start",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code Validate Start": {
+      "main": [
+        [
+          {
+            "node": "HTTP Start Evolution",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Start Evolution": {
+      "main": [
+        [
+          {
+            "node": "Code Normalize Start",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code Normalize Start": {
+      "main": [
+        [
+          {
+            "node": "Respond Start",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook Status": {
+      "main": [
+        [
+          {
+            "node": "Code Validate Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code Validate Status": {
+      "main": [
+        [
+          {
+            "node": "HTTP Status Evolution",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Status Evolution": {
+      "main": [
+        [
+          {
+            "node": "Code Normalize Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code Normalize Status": {
+      "main": [
+        [
+          {
+            "node": "Respond Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook Disconnect": {
+      "main": [
+        [
+          {
+            "node": "Code Validate Disconnect",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code Validate Disconnect": {
+      "main": [
+        [
+          {
+            "node": "HTTP Disconnect Evolution",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Disconnect Evolution": {
+      "main": [
+        [
+          {
+            "node": "Code Normalize Disconnect",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code Normalize Disconnect": {
+      "main": [
+        [
+          {
+            "node": "Respond Disconnect",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "versionId": "6f02561f-7fc8-4fba-9235-e77870118478",
+  "meta": {
+    "instanceId": "b09066a0ce9dae5f1f7e1d25a7f8d4b74f25dcc41ee94646023da964a8405c3e"
+  },
+  "id": "f-T8hRgn1-EM83RLC0Rkz",
+  "tags": []
+}
