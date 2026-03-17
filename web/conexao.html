@@ -270,6 +270,7 @@
 
     let pollingTimer = null;
     let currentSessionId = null;
+    let pollingPaused = false;
 
     function setStatus(text, kind) {
       statusEl.textContent = text;
@@ -290,12 +291,15 @@
       qrWrap.innerHTML = `<img src="${src}" alt="QR Code do WhatsApp" />`;
     }
 
-    function stopPolling() {
+    function stopPolling(showStatus = true) {
       if (pollingTimer) {
         clearInterval(pollingTimer);
         pollingTimer = null;
       }
-      setStatus("Consulta pausada.", "warn");
+      pollingPaused = true;
+      if (showStatus) {
+        setStatus("Consulta pausada.", "warn");
+      }
     }
 
     async function safeParseJson(response) {
@@ -329,13 +333,13 @@
           body: JSON.stringify({ sessionId, instanceName })
         });
 
-        if (!response.ok) {
-          throw new Error(`Falha ao desconectar (HTTP ${response.status}).`);
-        }
-
         const data = await safeParseJson(response);
 
-        stopPolling();
+        if (!response.ok && data.disconnected !== true) {
+          throw new Error(data.message || `Falha ao desconectar (HTTP ${response.status}).`);
+        }
+
+        stopPolling(false);
         currentSessionId = null;
         renderQr(null);
         sessionMeta.textContent = "";
@@ -346,7 +350,7 @@
     }
 
     async function fetchStatus() {
-      if (!currentSessionId) return;
+      if (!currentSessionId || pollingPaused) return;
 
       const url = `${STATUS_ENDPOINT}?sessionId=${encodeURIComponent(currentSessionId)}`;
       
@@ -367,7 +371,7 @@
 
         if (state === "connected" || data.connected === true) {
           setStatus("Conexão concluída com sucesso.", "ok");
-          stopPolling();
+          stopPolling(false);
         }
 
         if (state === "waiting" || state === "qrcode") {
@@ -405,7 +409,7 @@
         const data = await safeParseJson(response);
         console.log("Resposta recebida:", data);
         
-        currentSessionId = data.sessionId || instanceName;
+        currentSessionId = data.instance?.instanceName || data.instanceName || data.sessionId || instanceName;
         sessionMeta.textContent = `Sessão: ${currentSessionId}`;
 
         if (data.qrCode) {
@@ -415,8 +419,13 @@
           setStatus("Conexão iniciada. Buscando QR Code...", "warn");
         }
 
+        pollingPaused = false;
         if (pollingTimer) clearInterval(pollingTimer);
         pollingTimer = setInterval(() => {
+          if (pollingPaused) {
+            stopPolling(false);
+            return;
+          }
           fetchStatus().catch((err) => {
             setStatus(err.message, "warn");
           });
